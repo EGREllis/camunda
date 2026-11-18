@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  targetNamespace="http://example.com/hello">
+  <bpmn:process id="hello" name="Hello World" isExecutable="true"
+                camunda:historyTimeToLive="P30D">
+    <bpmn:startEvent id="start" />
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="sayHello" />
+    <bpmn:serviceTask id="sayHello" name="Say hello"
+                      camunda:delegateExpression="${sayHelloDelegate}" />
+    <bpmn:sequenceFlow id="f2" sourceRef="sayHello" targetRef="approve" />
+    <bpmn:userTask id="approve" name="Approve" camunda:assignee="demo" />
+    <bpmn:sequenceFlow id="f3" sourceRef="approve" targetRef="end" />
+    <bpmn:endEvent id="end" />
+  </bpmn:process>
+</bpmn:definitions>
