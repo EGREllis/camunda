@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FizzBuzz as a BPMN process.
+
+  Input variable:  n       (Integer)  the number to classify
+  Output variable: result  (String)   "Fizz", "Buzz", "FizzBuzz" or n as text
+
+  How it works:
+    1. An exclusive gateway ("Divisible by?") inspects n. Each outgoing
+       sequence flow carries a JUEL condition; the conditions are written
+       to be mutually exclusive, so exactly one fires. The flow to
+       "Use number" is the gateway's *default* flow: it is taken when no
+       condition is true, and it must not have a condition of its own.
+    2. Each branch is a service task that calls the same Spring bean
+       (recordResultDelegate). The branch tells the delegate which word
+       to record through an input parameter called "word".
+    3. A second exclusive gateway joins the branches back together
+       before the end event.
+
+  There is no user task or timer, so the whole process runs synchronously
+  inside the call that starts it.
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="fizzBuzzDefinitions"
+                  targetNamespace="http://ellise.net/fizzbuzz">
+
+  <bpmn:process id="fizzBuzz" name="FizzBuzz" isExecutable="true"
+                camunda:historyTimeToLive="P30D">
+
+    <bpmn:startEvent id="start" name="n received" />
+    <bpmn:sequenceFlow id="toSplit" sourceRef="start" targetRef="divisibleBy" />
+
+    <!-- "default" names the flow taken when no condition matches. -->
+    <bpmn:exclusiveGateway id="divisibleBy" name="Divisible by?" default="toNumber" />
+
+    <bpmn:sequenceFlow id="toFizzBuzz" name="3 and 5" sourceRef="divisibleBy" targetRef="useFizzBuzz">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${n % 3 == 0 &amp;&amp; n % 5 == 0}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="toFizz" name="3 only" sourceRef="divisibleBy" targetRef="useFizz">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${n % 3 == 0 &amp;&amp; n % 5 != 0}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="toBuzz" name="5 only" sourceRef="divisibleBy" targetRef="useBuzz">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${n % 5 == 0 &amp;&amp; n % 3 != 0}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="toNumber" name="neither" sourceRef="divisibleBy" targetRef="useNumber" />
+
+    <bpmn:serviceTask id="useFizzBuzz" name="Use &quot;FizzBuzz&quot;"
+                      camunda:delegateExpression="${recordResultDelegate}">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="word">FizzBuzz</camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="useFizz" name="Use &quot;Fizz&quot;"
+                      camunda:delegateExpression="${recordResultDelegate}">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="word">Fizz</camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="useBuzz" name="Use &quot;Buzz&quot;"
+                      camunda:delegateExpression="${recordResultDelegate}">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="word">Buzz</camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="useNumber" name="Use number"
+                      camunda:delegateExpression="${recordResultDelegate}">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <!-- An expression instead of a literal: the word is n itself. -->
+          <camunda:inputParameter name="word">${n}</camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="fromFizzBuzz" sourceRef="useFizzBuzz" targetRef="join" />
+    <bpmn:sequenceFlow id="fromFizz" sourceRef="useFizz" targetRef="join" />
+    <bpmn:sequenceFlow id="fromBuzz" sourceRef="useBuzz" targetRef="join" />
+    <bpmn:sequenceFlow id="fromNumber" sourceRef="useNumber" targetRef="join" />
+
+    <bpmn:exclusiveGateway id="join" />
+    <bpmn:sequenceFlow id="toEnd" sourceRef="join" targetRef="end" />
+
+    <bpmn:endEvent id="end" name="result recorded" />
+  </bpmn:process>
+
+  <!-- Diagram layout, so Camunda Modeler and Cockpit can draw the process.
+       The engine ignores everything below this line. -->
+  <bpmndi:BPMNDiagram id="fizzBuzzDiagram">
+    <bpmndi:BPMNPlane id="fizzBuzzPlane" bpmnElement="fizzBuzz">
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="152" y="257" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="divisibleBy_di" bpmnElement="divisibleBy" isMarkerVisible="true">
+        <dc:Bounds x="245" y="250" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="useFizzBuzz_di" bpmnElement="useFizzBuzz">
+        <dc:Bounds x="400" y="60" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="useFizz_di" bpmnElement="useFizz">
+        <dc:Bounds x="400" y="170" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="useBuzz_di" bpmnElement="useBuzz">
+        <dc:Bounds x="400" y="280" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="useNumber_di" bpmnElement="useNumber">
+        <dc:Bounds x="400" y="390" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="join_di" bpmnElement="join" isMarkerVisible="true">
+        <dc:Bounds x="585" y="250" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_di" bpmnElement="end">
+        <dc:Bounds x="702" y="257" width="36" height="36" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="toSplit_di" bpmnElement="toSplit">
+        <di:waypoint x="188" y="275" />
+        <di:waypoint x="245" y="275" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="toFizzBuzz_di" bpmnElement="toFizzBuzz">
+        <di:waypoint x="270" y="250" />
+        <di:waypoint x="270" y="100" />
+        <di:waypoint x="400" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="toFizz_di" bpmnElement="toFizz">
+        <di:waypoint x="270" y="250" />
+        <di:waypoint x="270" y="210" />
+        <di:waypoint x="400" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="toBuzz_di" bpmnElement="toBuzz">
+        <di:waypoint x="270" y="300" />
+        <di:waypoint x="270" y="320" />
+        <di:waypoint x="400" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="toNumber_di" bpmnElement="toNumber">
+        <di:waypoint x="270" y="300" />
+        <di:waypoint x="270" y="430" />
+        <di:waypoint x="400" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromFizzBuzz_di" bpmnElement="fromFizzBuzz">
+        <di:waypoint x="500" y="100" />
+        <di:waypoint x="610" y="100" />
+        <di:waypoint x="610" y="250" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromFizz_di" bpmnElement="fromFizz">
+        <di:waypoint x="500" y="210" />
+        <di:waypoint x="610" y="210" />
+        <di:waypoint x="610" y="250" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromBuzz_di" bpmnElement="fromBuzz">
+        <di:waypoint x="500" y="320" />
+        <di:waypoint x="610" y="320" />
+        <di:waypoint x="610" y="300" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="fromNumber_di" bpmnElement="fromNumber">
+        <di:waypoint x="500" y="430" />
+        <di:waypoint x="610" y="430" />
+        <di:waypoint x="610" y="300" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="toEnd_di" bpmnElement="toEnd">
+        <di:waypoint x="635" y="275" />
+        <di:waypoint x="702" y="275" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
